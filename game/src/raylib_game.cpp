@@ -1,19 +1,6 @@
-#include <raylib.h>
+#include "raylib.h"
 #include <string.h>
-//#include "winuser.h"
-
-#if defined(PLATFORM_WEB)
-#include <emscripten/emscripten.h>
-#endif
-
-typedef struct Vector2I {
-	int x;
-	int y;
-} Vector2I;
-
-extern "C" {
-	int GetCursorPos(Vector2I* point);
-}
+#include "my_platform.h"
 
 Vector2 GetHalf(Vector2 size) {
 	return { (size.x / 2.0f), (size.y / 2.0f) };
@@ -36,9 +23,18 @@ typedef struct Button {
 	int action;
 } Button;
 
+typedef struct Mouse {
+	Texture2D body;
+	Texture2D left;
+	Texture2D right;
+	Texture2D scroll;
+	Rectangle rect;
+	Vector2 pivot;
+} Mouse;
+
+
 Font font = { 0 };
-Texture2D mouseTex = { 0 };
-Vector2 mouseTextureHalf;
+Mouse mouseTex = { 0 };
 
 int monitorNumber = 0;
 Vector2I monitorSize = { 0, 0 };
@@ -61,10 +57,22 @@ static void Init(void)
 	//SetWindowState(FLAG_WINDOW_UNDECORATED);
 
 	font = LoadFont("resources/mecha.png");
+
 	Image mouseImg = LoadImage("resources/mouse.png");
-	mouseTex = LoadTextureFromImage(mouseImg);
-	mouseTextureHalf = GetHalf({ (float)mouseTex.width, (float)mouseTex.height });
+	mouseTex.body = LoadTextureFromImage(mouseImg);
 	UnloadImage(mouseImg);
+	mouseImg = LoadImage("resources/mouse_left.png");
+	mouseTex.left = LoadTextureFromImage(mouseImg);
+	UnloadImage(mouseImg);
+	mouseImg = LoadImage("resources/mouse_right.png");
+	mouseTex.right = LoadTextureFromImage(mouseImg);
+	UnloadImage(mouseImg);
+	mouseImg = LoadImage("resources/mouse_middle.png");
+	mouseTex.scroll = LoadTextureFromImage(mouseImg);
+	UnloadImage(mouseImg);
+
+	mouseTex.rect = { 0.0f, 0.0f, (float)mouseTex.body.width, (float)mouseTex.body.height };
+	mouseTex.pivot = GetHalf({ (float)mouseTex.body.width, (float)mouseTex.body.height });
 }
 static void Unload(void)
 {
@@ -80,30 +88,28 @@ int counter = 0;
 static void UpdateDrawFrame(void)
 {
 	Vector2 mousePos = GetMousePosition();
-	Vector2I winMousePos;
-	GetCursorPos(&winMousePos);
+	Vector2I winMousePos = GetMouseMonitorPosition();
+	bool focused = IsWindowFocused();
 
 	BeginDrawing();
-	ClearBackground(RAYWHITE);
-	//ClearBackground(BLANK);
+	ClearBackground(focused ? RAYWHITE : BLANK);
 
-	float x = Remap(winMousePos.x, 0.0f, monitorSize.x, 0.0f, screenSize.x);
-	float y = Remap(winMousePos.y, 0.0f, monitorSize.y, 0.0f, screenSize.y);
-	DrawTexturePro(mouseTex,
-		{ 0.0f, 0.0f, (float)mouseTex.width, (float)mouseTex.height },
-		{ x, y, (float)mouseTex.width, (float)mouseTex.height },
-		{ mouseTextureHalf.x, mouseTextureHalf.y } /*Pivot*/,
-		0.0f, WHITE);
-
-
-	if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-		DrawRectangle(400, 200, 100, 100, ORANGE);
+	float m_x = Remap(winMousePos.x, 0.0f, monitorSize.x, 0.0f, screenSize.x);
+	float m_y = Remap(winMousePos.y, 0.0f, monitorSize.y, 0.0f, screenSize.y);
+	Rectangle m_rect = { m_x, m_y, mouseTex.rect.width,mouseTex.rect.height };
+	DrawTexturePro(mouseTex.body, mouseTex.rect, m_rect, mouseTex.pivot, 0.0f, WHITE);
+	if (GetMouseKeyLeft())
+		DrawTexturePro(mouseTex.left, mouseTex.rect, m_rect, mouseTex.pivot, 0.0f, WHITE);
+	if (GetMouseKeyRight())
+		DrawTexturePro(mouseTex.right, mouseTex.rect, m_rect, mouseTex.pivot, 0.0f, WHITE);
+	if (GetMouseKeyMiddle())
+		DrawTexturePro(mouseTex.scroll, mouseTex.rect, m_rect, mouseTex.pivot, 0.0f, WHITE);
 
 	// DRAW HUD - Only if widows if focused
-	if (IsWindowFocused()) 
+	if (focused)
 	{
 		DrawFPS(screenSize.x - 100, 10);
-		
+
 		// Debug Text
 		const char* txt = TextFormat("%d %d %d", winMousePos.x, winMousePos.y, counter++);
 		DrawText(txt, screenSize.x / 2 - strlen(txt) * baseHalfFontSize, 10, baseFontSize, DARKGRAY);
@@ -129,13 +135,9 @@ static void UpdateDrawFrame(void)
 int main(void)
 {
 	Init();
-#if defined(PLATFORM_WEB)
-	emscripten_set_main_loop(UpdateDrawFrame, targetFPS, 1);
-#else
 	SetTargetFPS(targetFPS);
 	while (!WindowShouldClose()) // Detect window close button or ESC key
 		UpdateDrawFrame();
-#endif
 	Unload();
 	return 0;
 }

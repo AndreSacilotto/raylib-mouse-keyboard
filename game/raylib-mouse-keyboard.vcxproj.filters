@@ -12,5 +12,13 @@
     <ClCompile Include="src\raylib_game.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="my_platform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="my_platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
